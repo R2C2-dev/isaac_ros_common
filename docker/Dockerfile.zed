@@ -6,36 +6,65 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
+
+# ARG BASE_IMAGE=nvcr.io/nvidia/cuda:${CUDA_MAJOR}.${CUDA_MINOR}.${CUDA_PATCH}-devel-ubuntu${UBUNTU_MAJOR}.${UBUNTU_MINOR}
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
+ARG UBUNTU_MAJOR=22
+ARG UBUNTU_MINOR=04
+
+ARG CUDA_MAJOR=12
+ARG CUDA_MINOR=1
+
 ARG ZED_SDK_MAJOR=4
-ARG ZED_SDK_MINOR=0
+ARG ZED_SDK_MINOR=2
+ARG ZED_SDK_PATCH=3
+
+ARG JETPACK_MAJOR=36
+ARG JETPACK_MINOR=4
+
+ARG ZED_SDK_URL=https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/ZED_SDK_Ubuntu${UBUNTU_MAJOR}_cuda${CUDA_MAJOR}.${CUDA_MINOR}_v${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}.zstd.run
 
 # zed-ros2-wrapper dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
-apt-get update && apt-get install -y \
-    libgeographic-dev  \
-    ros-humble-geographic-info \
-    ros-humble-nmea-msgs \
-    ros-humble-robot-localization \
-    ros-humble-xacro
+  apt-get update && apt-get install -y \
+  libgeographic-dev  \
+  ros-humble-geographic-info \
+  ros-humble-nmea-msgs \
+  ros-humble-robot-localization \
+  ros-humble-xacro
+
+RUN apt-get update -y || true && \
+  apt-get install --no-install-recommends dialog bash-completion lsb-release wget less udev build-essential cmake zstd python3 python3-pip libpng-dev libgomp1 sudo apt-transport-https -y
 
 # The zed installation script expects to be run as non-root user and needs the USER ENV variable to be set
+ARG USERNAME
 ENV USER=${USERNAME}
 USER ${USERNAME}
 
 COPY scripts/install-zed-x86_64.sh /opt/zed/install-zed-x86_64.sh
 COPY scripts/install-zed-aarch64.sh /opt/zed/install-zed-aarch64.sh
 
+# Setup the ZED SDK
+
+
 RUN --mount=type=cache,target=/var/cache/apt \
+  cd /tmp/; \
   if [ "$(uname -m)" = "x86_64" ]; then \
-    sudo chmod +x /opt/zed/install-zed-x86_64.sh; \
-    /opt/zed/install-zed-x86_64.sh; \
+  wget -q -O ZED_SDK_Linux.run https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/ZED_SDK_Ubuntu${UBUNTU_MAJOR}_cuda${CUDA_MAJOR}.${CUDA_MINOR}_v${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}.zstd.run; \
+  chmod +x ZED_SDK_Linux.run; \
+  ./ZED_SDK_Linux.run --accept --chown -- silent skip_python skip_cuda; \
+  sudo ln -sf /lib/x86_64-linux-gnu/libusb-1.0.so.0 /usr/lib/x86_64-linux-gnu/libusb-1.0.so; \
+  rm ZED_SDK_Linux.run; \
   else \
-    sudo chmod +x /opt/zed/install-zed-aarch64.sh; \
-    /opt/zed/install-zed-aarch64.sh; \
+  wget -q --no-check-certificate -O ZED_SDK_Linux.run https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/ZED_SDK_Tegra_L4T${JETSON_MAJOR}.${JETSON_MINOR}_v${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}.zstd.run; \
+  chmod +x ZED_SDK_Linux.run; \
+  ./ZED_SDK_Linux.run --accept --chown -- silent skip_od_module skip_python skip_drivers; \
+  ln -sf /usr/lib/aarch64-linux-gnu/tegra/libv4l2.so.0 /usr/lib/aarch64-linux-gnu/libv4l2.so; \
+  sudo rm -rf /usr/local/zed/resources/*; \
+  rm -rf ZED_SDK_Linux.run; \
   fi
 
-# Revert to root user
 USER root
+

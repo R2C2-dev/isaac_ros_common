@@ -13,33 +13,34 @@ FROM ${BASE_IMAGE}
 ARG USERNAME=admin
 ARG USER_UID=1000
 ARG USER_GID=1000
+ENV USERNAME=${USERNAME}
 
 # Install prerequisites
 RUN --mount=type=cache,target=/var/cache/apt \
-apt-get update && apt-get install -y \
-        sudo \
-        udev
+  apt-get update && apt-get install -y \
+  sudo \
+  udev
 
 # Reuse triton-server user as 'admin' user if exists
 RUN if [ $(getent group triton-server) ]; then \
-        groupmod -o --gid ${USER_GID} -n ${USERNAME} triton-server ; \
-        usermod -l ${USERNAME} -u ${USER_UID} -m -d /home/${USERNAME} triton-server ; \
-        mkdir -p /home/${USERNAME} ; \
-        sudo chown ${USERNAME}:${USERNAME} /home/${USERNAME} ; \
-        # Wipe files that may create issues for users with large uid numbers.
-        rm -f /var/log/lastlog /var/log/faillog ; \
-    fi
+  groupmod -o --gid ${USER_GID} -n ${USERNAME} triton-server ; \
+  usermod -l ${USERNAME} -u ${USER_UID} -m -d /home/${USERNAME} triton-server ; \
+  mkdir -p /home/${USERNAME} ; \
+  sudo chown ${USERNAME}:${USERNAME} /home/${USERNAME} ; \
+  # Wipe files that may create issues for users with large uid numbers.
+  rm -f /var/log/lastlog /var/log/faillog ; \
+  fi
 
 # Create the 'admin' user if not already exists
 RUN if [ ! $(getent passwd ${USERNAME}) ]; then \
-        groupadd --gid ${USER_GID} ${USERNAME} ; \
-        useradd --no-log-init --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} ; \
-    fi
+  groupadd --gid ${USER_GID} ${USERNAME} ; \
+  useradd --no-log-init --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} ; \
+  fi
 
 # Update 'admin' user
 RUN echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} \
-    && chmod 0440 /etc/sudoers.d/${USERNAME} \
-    && adduser ${USERNAME} video && adduser ${USERNAME} plugdev && adduser ${USERNAME} sudo
+  && chmod 0440 /etc/sudoers.d/${USERNAME} \
+  && adduser ${USERNAME} video && adduser ${USERNAME} plugdev && adduser ${USERNAME} sudo
 
 # Copy scripts
 RUN mkdir -p /usr/local/bin/scripts
@@ -57,5 +58,11 @@ ENV USER_UID=${USER_UID}
 # Switch to non-root user and return to root
 USER ${USERNAME}
 RUN --mount=type=cache,target=/var/cache/apt \
-    rosdep update
+  rosdep update
+
+# RUN if [ -d "/usr/local/zed/" ]; then \
+#   sudo chown -R  ${USERNAME}:${USERNAME} /usr/local/zed/ ;\
+#   fi
+
+
 USER root
