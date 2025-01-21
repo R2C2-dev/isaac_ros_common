@@ -40,7 +40,8 @@ RUN if [ ! $(getent passwd ${USERNAME}) ]; then \
 # Update 'admin' user
 RUN echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} \
   && chmod 0440 /etc/sudoers.d/${USERNAME} \
-  && adduser ${USERNAME} video && adduser ${USERNAME} plugdev && adduser ${USERNAME} sudo
+  && adduser ${USERNAME} video && adduser ${USERNAME} plugdev && adduser ${USERNAME} dialout && adduser ${USERNAME} sudo \
+  && usermod -a -G plugdev ${USERNAME} &&   usermod -a -G dialout ${USERNAME} 
 
 # Copy scripts
 RUN mkdir -p /usr/local/bin/scripts
